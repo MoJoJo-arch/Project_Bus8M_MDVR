@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Installation Checklist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative">
+        <!-- Header -->
+        <div class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 flex items-center">
+            <button id="backBtn" class="hidden mr-4 text-white font-bold">&larr; กลับ</button>
+            <h1 id="headerTitle" class="text-xl font-bold">เลือกโปรเจกต์</h1>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content" class="p-4 fade-in"></div>
+    </div>
+
+    <script>
+        // ข้อมูลรถทั้งหมด
+        const busData = [
+            { id: 1, old_plate: '34-3632', vin: 'MRSABREM8NZN00093', new_plate: 'Project RAMA', id_online: '25343632/100525343632', sn_mdvr: 'DVC-MDVR-0073', sim: '896604012460174056', project: 'Project RAMA' },
+            { id: 2, old_plate: '34-3634', vin: 'MRSABREM9NZN00099', new_plate: 'Project RAMA', id_online: '25343634/00525343634', sn_mdvr: 'DVC-MDVR-0332', sim: '896604012460175070', project: 'Project RAMA' },
+            { id: 3, old_plate: '34-3636', vin: 'LL3ADCJ46NA070723', new_plate: 'Project RAMA', id_online: '25343636/100525343636', sn_mdvr: 'DVC-MDVR-0246', sim: '896604122460367196', project: 'Project RAMA' },
+            { id: 4, old_plate: '34-3640', vin: 'MRSABREM3NZN00096', new_plate: 'Project RAMA', id_online: '25343640/100525343640', sn_mdvr: 'DVC-MDVR-0245', sim: '896604012460171221', project: 'Project RAMA' },
+            { id: 5, old_plate: '34-3654', vin: 'MRSABREM6NZN00092', new_plate: 'Project RAMA', id_online: '25343654/100525343654', sn_mdvr: 'DVC-MDVR-0247', sim: '896604122460367069', project: 'Project RAMA' },
+            { id: 6, old_plate: '34-3637', vin: 'MRSABREM1NZN00100', new_plate: 'Project RAMA', id_online: '25343637/100525343637', sn_mdvr: '-', sim: '896604122460367708', project: 'Project RAMA' },
+            { id: 7, old_plate: '34-3630', vin: 'MRSABREM6NZN00089', project: 'Unassigned' },
+            { id: 8, old_plate: '34-3639', vin: 'MRSABREM2NZN00090', project: 'Unassigned' },
+            { id: 9, old_plate: '34-3628', vin: 'MRSABREM4NZN00091', project: 'Unassigned' },
+            { id: 10, old_plate: '34-3627', vin: 'MRSABREMXNZN00094', project: 'Unassigned' },
+            { id: 11, old_plate: '34-3629', vin: 'MRSABREM1NZN00095', project: 'Unassigned' },
+            { id: 12, old_plate: '34-3638', vin: 'MRSABREM5NZN00097', project: 'Unassigned' },
+            { id: 13, old_plate: '34-3631', vin: 'MRSABREM7NZN00098', project: 'Unassigned' },
+            { id: 14, old_plate: '34-3635', vin: 'MRSABREM3NZN00101', project: 'Unassigned' },
+            { id: 15, old_plate: '34-3626', vin: 'MRSABREM1PZN00102', project: 'Unassigned' },
+            { id: 16, old_plate: '34-4908', vin: 'MRSABREM3PZN00103', project: 'Unassigned' },
+            { id: 17, old_plate: '34-4910', vin: 'MRSABREM5PZN00104', project: 'Unassigned' },
+            { id: 18, old_plate: '34-4907', vin: 'MRSABREM7PZN00105', project: 'Unassigned' },
+            { id: 19, old_plate: '34-4909', vin: 'MRSABREM9PZN00106', project: 'Unassigned' },
+            { id: 20, old_plate: '34-4906', project: 'Unassigned' }
+        ];
+
+        // รายการ Checklist
+        const checklistItems = [
+            { id: "mdvr", label: "Set up MDVR" },
+            { id: "fleet", label: "ตรวจสอบ Fleet Online" },
+            { id: "config", label: "Config กล้องนับคน" },
+            { id: "license", label: "รูดใบขับขี่" }
+        ];
+
+        // State
+        let currentView = 'projects'; // projects, buses, checklist
+        let selectedProject = null;
+        let selectedBus = null;
+
+        // ดึงข้อมูลที่บันทึกไว้
+        function getSavedData(busId) {
+            const data = localStorage.getItem(`bus_${busId}`);
+            return data ? JSON.parse(data) : {};
+        }
+
+        // บันทึกข้อมูล
+        function saveData(busId, key, value) {
+            const data = getSavedData(busId);
+            data[key] = value;
+            localStorage.setItem(`bus_${busId}`, JSON.stringify(data));
+            render();
+        }
+
+        // คำนวณ Progress
+        function getBusProgress(busId) {
+            const data = getSavedData(busId);
+            const completed = checklistItems.filter(item => data[item.id]).length;
+            return { completed, total: checklistItems.length };
+        }
+
+        // ตัวจัดการเปลี่ยนหน้า
+        const contentDiv = document.getElementById('content');
+        const headerTitle = document.getElementById('headerTitle');
+        const backBtn = document.getElementById('backBtn');
+
+        backBtn.addEventListener('click', () => {
+            if (currentView === 'checklist') {
+                currentView = 'buses';
+            } else if (currentView === 'buses') {
+                currentView = 'projects';
+                selectedProject = null;
+            }
+            render();
+        });
+
+        // ฟังก์ชัน Render หน้าจอ
+        function render() {
+            contentDiv.innerHTML = '';
+            contentDiv.className = 'p-4 fade-in';
+            
+            if (currentView === 'projects') {
+                backBtn.classList.add('hidden');
+                headerTitle.textContent = 'เลือกโปรเจกต์';
+                
+                const projects = [...new Set(busData.map(b => b.project))];
+                
+                projects.forEach(proj => {
+                    const btn = document.createElement('div');
+                    btn.className = 'bg-white border-2 border-blue-200 rounded-lg p-5 mb-4 shadow-sm cursor-pointer hover:bg-blue-50';
+                    btn.innerHTML = `<h2 class="text-xl font-bold text-blue-700">${proj}</h2>`;
+                    btn.onclick = () => {
+                        selectedProject = proj;
+                        currentView = 'buses';
+                        render();
+                    };
+                    contentDiv.appendChild(btn);
+                });
+
+            } else if (currentView === 'buses') {
+                backBtn.classList.remove('hidden');
+                headerTitle.textContent = `โปรเจกต์: ${selectedProject}`;
+                
+                const buses = busData.filter(b => b.project === selectedProject);
+                
+                buses.forEach(bus => {
+                    const { completed, total } = getBusProgress(bus.id);
+                    const isDone = completed === total;
+                    const card = document.createElement('div');
+                    card.className = `border rounded-lg p-4 mb-3 shadow-sm cursor-pointer ${isDone ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`;
+                    
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="font-bold text-lg">ทะเบียน: ${bus.old_plate}</div>
+                                <div class="text-sm text-gray-500">VIN: ${bus.vin}</div>
+                            </div>
+                            <div class="text-sm font-semibold ${isDone ? 'text-green-600' : 'text-blue-600'}">
+                                ${completed}/${total}
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div class="h-2 rounded-full ${isDone ? 'bg-green-500' : 'bg-blue-500'}" style="width: ${(completed/total)*100}%"></div>
+                        </div>
+                    `;
+                    card.onclick = () => {
+                        selectedBus = bus;
+                        currentView = 'checklist';
+                        render();
+                    };
+                    contentDiv.appendChild(card);
+                });
+
+            } else if (currentView === 'checklist') {
+                backBtn.classList.remove('hidden');
+                headerTitle.textContent = `รถ: ${selectedBus.old_plate}`;
+                
+                // Info Card
+                const infoCard = document.createElement('div');
+                infoCard.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm';
+                infoCard.innerHTML = `
+                    <p><strong>VIN:</strong> ${selectedBus.vin || '-'}</p>
+                    <p><strong>ID Online:</strong> ${selectedBus.id_online || '-'}</p>
+                    <p><strong>S/N MDVR:</strong> ${selectedBus.sn_mdvr || '-'}</p>
+                    <p><strong>SIM MDVR:</strong> ${selectedBus.sim || '-'}</p>
+                `;
+                contentDiv.appendChild(infoCard);
+
+                const data = getSavedData(selectedBus.id);
+
+                // Checklist Items
+                checklistItems.forEach(item => {
+                    const row = document.createElement('label');
+                    row.className = 'flex items-center p-4 mb-3 border rounded-lg cursor-pointer transition-colors ' + (data[item.id] ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200');
+                    
+                    row.innerHTML = `
+                        <input type="checkbox" class="w-6 h-6 mr-4 rounded text-blue-600 focus:ring-blue-500" ${data[item.id] ? 'checked' : ''}>
+                        <span class="text-lg ${data[item.id] ? 'text-green-800 font-semibold' : 'text-gray-700'}">${item.label}</span>
+                    `;
+                    
+                    const checkbox = row.querySelector('input');
+                    checkbox.onchange = (e) => {
+                        saveData(selectedBus.id, item.id, e.target.checked);
+                    };
+                    
+                    contentDiv.appendChild(row);
+                });
+            }
+        }
+
+        // เริ่มต้นการทำงาน
+        render();
+    </script>
+</body>
+</html>
