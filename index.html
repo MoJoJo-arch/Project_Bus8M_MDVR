@@ -21,18 +21,18 @@
         </div>
 
         <!-- Content Area -->
-        <div id="content" class="p-4 fade-in"></div>
+        <div id="content" class="p-4 fade-in pb-20"></div>
     </div>
 
     <script>
-        // ข้อมูลรถทั้งหมด
-        const busData = [
-            { id: 1, old_plate: '34-3632', vin: 'MRSABREM8NZN00093', new_plate: 'Project RAMA', id_online: '25343632/100525343632', sn_mdvr: 'DVC-MDVR-0073', sim: '896604012460174056', project: 'Project RAMA' },
-            { id: 2, old_plate: '34-3634', vin: 'MRSABREM9NZN00099', new_plate: 'Project RAMA', id_online: '25343634/00525343634', sn_mdvr: 'DVC-MDVR-0332', sim: '896604012460175070', project: 'Project RAMA' },
-            { id: 3, old_plate: '34-3636', vin: 'LL3ADCJ46NA070723', new_plate: 'Project RAMA', id_online: '25343636/100525343636', sn_mdvr: 'DVC-MDVR-0246', sim: '896604122460367196', project: 'Project RAMA' },
-            { id: 4, old_plate: '34-3640', vin: 'MRSABREM3NZN00096', new_plate: 'Project RAMA', id_online: '25343640/100525343640', sn_mdvr: 'DVC-MDVR-0245', sim: '896604012460171221', project: 'Project RAMA' },
-            { id: 5, old_plate: '34-3654', vin: 'MRSABREM6NZN00092', new_plate: 'Project RAMA', id_online: '25343654/100525343654', sn_mdvr: 'DVC-MDVR-0247', sim: '896604122460367069', project: 'Project RAMA' },
-            { id: 6, old_plate: '34-3637', vin: 'MRSABREM1NZN00100', new_plate: 'Project RAMA', id_online: '25343637/100525343637', sn_mdvr: '-', sim: '896604122460367708', project: 'Project RAMA' },
+        // ข้อมูลตั้งต้น (จะถูกใช้ถ้ายังไม่มีการบันทึกใน LocalStorage)
+        const defaultBusData = [
+            { id: 1, old_plate: '34-3632', vin: 'MRSABREM8NZN00093', id_online: '25343632/100525343632', sn_mdvr: 'DVC-MDVR-0073', sim: '896604012460174056', project: 'Project RAMA' },
+            { id: 2, old_plate: '34-3634', vin: 'MRSABREM9NZN00099', id_online: '25343634/00525343634', sn_mdvr: 'DVC-MDVR-0332', sim: '896604012460175070', project: 'Project RAMA' },
+            { id: 3, old_plate: '34-3636', vin: 'LL3ADCJ46NA070723', id_online: '25343636/100525343636', sn_mdvr: 'DVC-MDVR-0246', sim: '896604122460367196', project: 'Project RAMA' },
+            { id: 4, old_plate: '34-3640', vin: 'MRSABREM3NZN00096', id_online: '25343640/100525343640', sn_mdvr: 'DVC-MDVR-0245', sim: '896604012460171221', project: 'Project RAMA' },
+            { id: 5, old_plate: '34-3654', vin: 'MRSABREM6NZN00092', id_online: '25343654/100525343654', sn_mdvr: 'DVC-MDVR-0247', sim: '896604122460367069', project: 'Project RAMA' },
+            { id: 6, old_plate: '34-3637', vin: 'MRSABREM1NZN00100', id_online: '25343637/100525343637', sn_mdvr: '-', sim: '896604122460367708', project: 'Project RAMA' },
             { id: 7, old_plate: '34-3630', vin: 'MRSABREM6NZN00089', project: 'Unassigned' },
             { id: 8, old_plate: '34-3639', vin: 'MRSABREM2NZN00090', project: 'Unassigned' },
             { id: 9, old_plate: '34-3628', vin: 'MRSABREM4NZN00091', project: 'Unassigned' },
@@ -49,27 +49,36 @@
             { id: 20, old_plate: '34-4906', project: 'Unassigned' }
         ];
 
-        // รายการ Checklist
+        // โหลดข้อมูลรถจาก LocalStorage หรือใช้ค่าเริ่มต้น
+        let busData = JSON.parse(localStorage.getItem('master_bus_data')) || defaultBusData;
+
+        // รายการ Checklist (เพิ่มป้ายไฟ LED)
         const checklistItems = [
             { id: "mdvr", label: "Set up MDVR" },
             { id: "fleet", label: "ตรวจสอบ Fleet Online" },
             { id: "config", label: "Config กล้องนับคน" },
-            { id: "license", label: "รูดใบขับขี่" }
+            { id: "license", label: "รูดใบขับขี่" },
+            { id: "led", label: "ทดสอบป้ายไฟ LED" } // <- เพิ่มหัวข้อใหม่
         ];
 
         // State
-        let currentView = 'projects'; // projects, buses, checklist
+        let currentView = 'projects'; 
         let selectedProject = null;
         let selectedBus = null;
+        let isEditing = false;
 
-        // ดึงข้อมูลที่บันทึกไว้
+        function saveMasterBusData() {
+            localStorage.setItem('master_bus_data', JSON.stringify(busData));
+        }
+
+        // ดึงข้อมูล Checklist ที่บันทึกไว้
         function getSavedData(busId) {
             const data = localStorage.getItem(`bus_${busId}`);
             return data ? JSON.parse(data) : {};
         }
 
-        // บันทึกข้อมูล
-        function saveData(busId, key, value) {
+        // บันทึกข้อมูล Checklist
+        function saveChecklistData(busId, key, value) {
             const data = getSavedData(busId);
             data[key] = value;
             localStorage.setItem(`bus_${busId}`, JSON.stringify(data));
@@ -83,13 +92,17 @@
             return { completed, total: checklistItems.length };
         }
 
-        // ตัวจัดการเปลี่ยนหน้า
         const contentDiv = document.getElementById('content');
         const headerTitle = document.getElementById('headerTitle');
         const backBtn = document.getElementById('backBtn');
 
         backBtn.addEventListener('click', () => {
-            if (currentView === 'checklist') {
+            if (currentView === 'form') {
+                currentView = isEditing ? 'checklist' : 'projects';
+            } else if (currentView === 'checklist') {
+                // อัปเดตข้อมูล selectedBus ล่าสุดเผื่อย้ายกลุ่ม
+                selectedBus = busData.find(b => b.id === selectedBus.id);
+                selectedProject = selectedBus ? selectedBus.project : selectedProject;
                 currentView = 'buses';
             } else if (currentView === 'buses') {
                 currentView = 'projects';
@@ -101,18 +114,39 @@
         // ฟังก์ชัน Render หน้าจอ
         function render() {
             contentDiv.innerHTML = '';
-            contentDiv.className = 'p-4 fade-in';
+            contentDiv.className = 'p-4 fade-in pb-20';
             
             if (currentView === 'projects') {
                 backBtn.classList.add('hidden');
-                headerTitle.textContent = 'เลือกโปรเจกต์';
+                headerTitle.textContent = 'เลือกระบบ/โปรเจกต์';
                 
                 const projects = [...new Set(busData.map(b => b.project))];
                 
                 projects.forEach(proj => {
                     const btn = document.createElement('div');
                     btn.className = 'bg-white border-2 border-blue-200 rounded-lg p-5 mb-4 shadow-sm cursor-pointer hover:bg-blue-50';
-                    btn.innerHTML = `<h2 class="text-xl font-bold text-blue-700">${proj}</h2>`;
+                    
+                    const busesInProject = busData.filter(b => b.project === proj);
+                    let totalItems = 0;
+                    let totalCompleted = 0;
+                    
+                    busesInProject.forEach(b => {
+                        const prog = getBusProgress(b.id);
+                        totalCompleted += prog.completed;
+                        totalItems += prog.total;
+                    });
+                    
+                    const percent = totalItems === 0 ? 0 : Math.round((totalCompleted / totalItems) * 100);
+
+                    btn.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-xl font-bold text-blue-700">${proj} <span class="text-sm font-normal text-gray-500">(${busesInProject.length} คัน)</span></h2>
+                            <span class="text-sm font-semibold text-gray-500">${percent}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-blue-500" style="width: ${percent}%"></div>
+                        </div>
+                    `;
                     btn.onclick = () => {
                         selectedProject = proj;
                         currentView = 'buses';
@@ -120,6 +154,18 @@
                     };
                     contentDiv.appendChild(btn);
                 });
+
+                // ปุ่มเพิ่มรถใหม่
+                const addBtn = document.createElement('button');
+                addBtn.className = 'w-full mt-4 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700';
+                addBtn.textContent = '+ เพิ่มรถใหม่';
+                addBtn.onclick = () => {
+                    selectedBus = null;
+                    isEditing = false;
+                    currentView = 'form';
+                    render();
+                };
+                contentDiv.appendChild(addBtn);
 
             } else if (currentView === 'buses') {
                 backBtn.classList.remove('hidden');
@@ -130,21 +176,28 @@
                 buses.forEach(bus => {
                     const { completed, total } = getBusProgress(bus.id);
                     const isDone = completed === total;
+                    const percent = Math.round((completed / total) * 100); 
+                    
                     const card = document.createElement('div');
                     card.className = `border rounded-lg p-4 mb-3 shadow-sm cursor-pointer ${isDone ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`;
                     
                     card.innerHTML = `
                         <div class="flex justify-between items-center">
                             <div>
-                                <div class="font-bold text-lg">ทะเบียน: ${bus.old_plate}</div>
-                                <div class="text-sm text-gray-500">VIN: ${bus.vin}</div>
+                                <div class="font-bold text-lg text-gray-800">${bus.old_plate || '-'}</div>
+                                <div class="text-sm text-gray-500">VIN: ${bus.vin || '-'}</div>
                             </div>
-                            <div class="text-sm font-semibold ${isDone ? 'text-green-600' : 'text-blue-600'}">
-                                ${completed}/${total}
+                            <div class="text-right">
+                                <div class="text-sm font-semibold ${isDone ? 'text-green-600' : 'text-blue-600'}">
+                                    ${percent}% 
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    (${completed}/${total})
+                                </div>
                             </div>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                            <div class="h-2 rounded-full ${isDone ? 'bg-green-500' : 'bg-blue-500'}" style="width: ${(completed/total)*100}%"></div>
+                            <div class="h-2 rounded-full ${isDone ? 'bg-green-500' : 'bg-blue-500'}" style="width: ${percent}%"></div>
                         </div>
                     `;
                     card.onclick = () => {
@@ -159,23 +212,47 @@
                 backBtn.classList.remove('hidden');
                 headerTitle.textContent = `รถ: ${selectedBus.old_plate}`;
                 
-                // Info Card
+                const data = getSavedData(selectedBus.id);
+                const { completed, total } = getBusProgress(selectedBus.id);
+                const percent = Math.round((completed / total) * 100);
+                
+                // Info Card พร้อมปุ่มแก้ไข
                 const infoCard = document.createElement('div');
-                infoCard.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm';
+                infoCard.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm relative overflow-hidden shadow-sm';
                 infoCard.innerHTML = `
-                    <p><strong>VIN:</strong> ${selectedBus.vin || '-'}</p>
-                    <p><strong>ID Online:</strong> ${selectedBus.id_online || '-'}</p>
-                    <p><strong>S/N MDVR:</strong> ${selectedBus.sn_mdvr || '-'}</p>
-                    <p><strong>SIM MDVR:</strong> ${selectedBus.sim || '-'}</p>
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="text-gray-700">
+                            <p><strong>โปรเจกต์:</strong> ${selectedBus.project || '-'}</p>
+                            <p><strong>VIN:</strong> ${selectedBus.vin || '-'}</p>
+                            <p><strong>ID Online:</strong> ${selectedBus.id_online || '-'}</p>
+                            <p><strong>S/N MDVR:</strong> ${selectedBus.sn_mdvr || '-'}</p>
+                            <p><strong>SIM MDVR:</strong> ${selectedBus.sim || '-'}</p>
+                        </div>
+                        <button id="editBtn" class="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md text-xs font-bold shadow hover:bg-yellow-500">✏️ แก้ไข</button>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-xs font-semibold text-blue-700 mb-1">
+                            <span>ความคืบหน้า</span>
+                            <span>${percent}%</span>
+                        </div>
+                        <div class="w-full bg-blue-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-blue-600 transition-all duration-300" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
                 `;
                 contentDiv.appendChild(infoCard);
 
-                const data = getSavedData(selectedBus.id);
+                // ตั้งค่าปุ่มแก้ไข
+                infoCard.querySelector('#editBtn').onclick = () => {
+                    isEditing = true;
+                    currentView = 'form';
+                    render();
+                };
 
                 // Checklist Items
                 checklistItems.forEach(item => {
                     const row = document.createElement('label');
-                    row.className = 'flex items-center p-4 mb-3 border rounded-lg cursor-pointer transition-colors ' + (data[item.id] ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200');
+                    row.className = 'flex items-center p-4 mb-3 border rounded-lg cursor-pointer transition-colors shadow-sm ' + (data[item.id] ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200');
                     
                     row.innerHTML = `
                         <input type="checkbox" class="w-6 h-6 mr-4 rounded text-blue-600 focus:ring-blue-500" ${data[item.id] ? 'checked' : ''}>
@@ -184,11 +261,92 @@
                     
                     const checkbox = row.querySelector('input');
                     checkbox.onchange = (e) => {
-                        saveData(selectedBus.id, item.id, e.target.checked);
+                        saveChecklistData(selectedBus.id, item.id, e.target.checked);
                     };
-                    
                     contentDiv.appendChild(row);
                 });
+
+            } else if (currentView === 'form') {
+                backBtn.classList.remove('hidden');
+                headerTitle.textContent = isEditing ? 'แก้ไขข้อมูลรถ' : 'เพิ่มรถใหม่';
+
+                const form = document.createElement('div');
+                form.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
+                
+                // ใช้ข้อมูลเดิมถ้ามี
+                const bData = isEditing && selectedBus ? selectedBus : { old_plate: '', project: 'Unassigned', vin: '', id_online: '', sn_mdvr: '', sim: '' };
+
+                form.innerHTML = `
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">ทะเบียนรถ</label>
+                        <input type="text" id="f_plate" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.old_plate}">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มโปรเจกต์ (แก้ไขเพื่อย้ายกลุ่ม)</label>
+                        <input type="text" id="f_project" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.project}">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">VIN Number</label>
+                        <input type="text" id="f_vin" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.vin}">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">ID Online</label>
+                        <input type="text" id="f_idonline" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.id_online}">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">S/N MDVR</label>
+                        <input type="text" id="f_sn" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.sn_mdvr}">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">SIM MDVR</label>
+                        <input type="text" id="f_sim" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.sim}">
+                    </div>
+                    <button id="saveBtn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-green-700">💾 บันทึกข้อมูล</button>
+                `;
+                contentDiv.appendChild(form);
+
+                form.querySelector('#saveBtn').onclick = () => {
+                    const plate = document.getElementById('f_plate').value.trim();
+                    const proj = document.getElementById('f_project').value.trim() || 'Unassigned';
+                    
+                    if(!plate) return alert('กรุณากรอกทะเบียนรถ');
+
+                    if (isEditing) {
+                        // อัปเดตข้อมูลเดิม
+                        const idx = busData.findIndex(b => b.id === selectedBus.id);
+                        if(idx > -1) {
+                            busData[idx].old_plate = plate;
+                            busData[idx].project = proj;
+                            busData[idx].vin = document.getElementById('f_vin').value;
+                            busData[idx].id_online = document.getElementById('f_idonline').value;
+                            busData[idx].sn_mdvr = document.getElementById('f_sn').value;
+                            busData[idx].sim = document.getElementById('f_sim').value;
+                        }
+                    } else {
+                        // เพิ่มรถใหม่
+                        const newId = busData.length > 0 ? Math.max(...busData.map(b => b.id)) + 1 : 1;
+                        busData.push({
+                            id: newId,
+                            old_plate: plate,
+                            project: proj,
+                            vin: document.getElementById('f_vin').value,
+                            id_online: document.getElementById('f_idonline').value,
+                            sn_mdvr: document.getElementById('f_sn').value,
+                            sim: document.getElementById('f_sim').value
+                        });
+                    }
+
+                    saveMasterBusData(); // บันทึกลง LocalStorage
+                    alert('บันทึกข้อมูลเรียบร้อยแล้ว');
+                    
+                    // กลับไปหน้าก่อนหน้า
+                    if (isEditing) {
+                        currentView = 'checklist';
+                    } else {
+                        currentView = 'projects';
+                    }
+                    render();
+                };
             }
         }
 
