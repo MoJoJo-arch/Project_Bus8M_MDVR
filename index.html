@@ -3,355 +3,625 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bus Installation Checklist</title>
+    <title>Bus Fleet Setup Checklist</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Prompt', sans-serif; }
+        .progress-bar { transition: width 0.5s ease-in-out; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 40px; height: 40px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-    <div id="app" class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative">
-        <!-- Header -->
-        <div class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 flex items-center">
-            <button id="backBtn" class="hidden mr-4 text-white font-bold">&larr; กลับ</button>
-            <h1 id="headerTitle" class="text-xl font-bold">เลือกโปรเจกต์</h1>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 z-[100] hidden items-center justify-center backdrop-blur-sm">
+        <div class="flex flex-col items-center">
+            <div class="spinner mb-4"></div>
+            <p class="text-white font-medium">กำลังโหลดข้อมูล...</p>
         </div>
-
-        <!-- Content Area -->
-        <div id="content" class="p-4 fade-in pb-20"></div>
     </div>
 
+    <!-- Setup Modal (Supabase Credentials) -->
+    <div id="setupModal" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            <div class="bg-blue-600 p-6 text-white text-center">
+                <i class="fa-solid fa-database text-4xl mb-3"></i>
+                <h2 class="text-2xl font-bold">ตั้งค่าการเชื่อมต่อ Supabase</h2>
+                <p class="text-blue-100 mt-1">กรุณากรอกข้อมูล Project URL และ API Key ของคุณ</p>
+            </div>
+            <div class="p-6 md:p-8">
+                <form id="setupForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Supabase URL</label>
+                        <input type="url" id="supabaseUrlInput" required placeholder="https://xxxx.supabase.co" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Supabase Anon Key</label>
+                        <input type="password" id="supabaseKeyInput" required placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+                        <h4 class="text-sm font-bold text-amber-800 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> สิ่งที่ต้องทำก่อนใช้งาน:</h4>
+                        <p class="text-xs text-amber-700 mb-2">คุณต้องนำ SQL ด้านล่างนี้ไปรันใน <b>SQL Editor</b> บน Supabase ของคุณเพื่อสร้างตารางข้อมูล</p>
+                        <textarea readonly class="w-full h-32 bg-slate-800 text-green-400 text-xs p-3 rounded-md font-mono outline-none resize-none">
+create table public.groups (
+  id uuid default gen_random_uuid() primary key,
+  name text not null
+);
+
+create table public.buses (
+  id uuid default gen_random_uuid() primary key,
+  group_id uuid references public.groups(id) on delete cascade,
+  no text,
+  old_plate text,
+  vin_number text,
+  new_plate text,
+  id_online text,
+  sn_mdvr text,
+  sim_mdvr text,
+  chk_mdvr boolean default false,
+  chk_fleet boolean default false,
+  chk_camera boolean default false,
+  chk_license boolean default false,
+  chk_led boolean default false
+);</textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg mt-4 transition-colors">
+                        บันทึกการตั้งค่าและเข้าสู่ระบบ
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App UI -->
+    <div id="appContainer" class="hidden">
+        <!-- Top Navigation -->
+        <nav class="bg-slate-800 text-white shadow-md">
+            <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-500 p-2 rounded-lg"><i class="fa-solid fa-bus text-xl"></i></div>
+                        <span class="font-bold text-lg hidden sm:block">Bus Fleet Checklist</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button onclick="openGroupModal()" class="text-sm bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium transition-colors border border-slate-600">
+                            <i class="fa-solid fa-layer-group mr-1"></i> จัดการกลุ่มรถ
+                        </button>
+                        <button onclick="openBusModal()" class="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-500">
+                            <i class="fa-solid fa-plus mr-1"></i> เพิ่มรถใหม่
+                        </button>
+                        <button onclick="logout()" class="text-sm text-slate-300 hover:text-white transition-colors" title="ออกจากระบบ / ล้างการตั้งค่า">
+                            <i class="fa-solid fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- Progress Dashboard -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+                <h2 class="text-lg font-bold text-slate-800 mb-4"><i class="fa-solid fa-chart-pie mr-2 text-blue-500"></i>ภาพรวมความคืบหน้าโครงการ</h2>
+                <div class="w-full">
+                    <div class="flex justify-between text-sm font-medium mb-2">
+                        <span class="text-slate-600">รถที่ติดตั้งและทดสอบครบสมบูรณ์</span>
+                        <span id="progressText" class="text-blue-600 font-bold text-lg">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-4 mb-2 border border-slate-200 overflow-hidden shadow-inner">
+                        <div id="progressBar" class="bg-blue-500 h-4 rounded-full progress-bar w-0 flex items-center justify-end pr-2 text-[10px] text-white font-bold shadow"></div>
+                    </div>
+                    <p id="progressSubtext" class="text-sm text-slate-500">ดำเนินการเสร็จ 0 จาก 0 คัน</p>
+                </div>
+            </div>
+
+            <!-- Groups and Tables Area -->
+            <div id="groupsContainer" class="space-y-8">
+                <!-- Group tables will be injected here -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-20 bg-white rounded-xl border border-slate-200 border-dashed">
+                <div class="text-slate-300 mb-4"><i class="fa-solid fa-box-open text-6xl"></i></div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">ยังไม่มีข้อมูลกลุ่มรถ</h3>
+                <p class="text-slate-500 mb-6">เริ่มต้นโดยการสร้างกลุ่มรถและเพิ่มรายชื่อรถลงในระบบ</p>
+                <button onclick="openGroupModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    <i class="fa-solid fa-plus mr-2"></i>สร้างกลุ่มรถ
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Group Modal -->
+    <div id="groupModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-layer-group text-blue-500 mr-2"></i>จัดการกลุ่มรถ (Groups)</h2>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="groupForm" class="flex gap-2 mb-6">
+                    <input type="text" id="groupNameInput" required class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="พิมพ์ชื่อกลุ่มใหม่...">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">เพิ่ม</button>
+                </form>
+                <div class="bg-slate-50 rounded-lg border border-slate-200 p-2 max-h-60 overflow-y-auto">
+                    <ul id="groupList" class="space-y-1">
+                        <!-- Group items injected here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bus Modal -->
+    <div id="busModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                <h2 id="busModalTitle" class="text-lg font-bold text-slate-800"><i class="fa-solid fa-bus text-blue-500 mr-2"></i>เพิ่มข้อมูลรถ</h2>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="busForm" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <input type="hidden" id="busIdInput">
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">กลุ่มรถ <span class="text-red-500">*</span></label>
+                        <select id="busGroupSelect" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <!-- Options injected here -->
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">เบอร์รถ (No.) <span class="text-red-500">*</span></label>
+                        <input type="text" id="busNoInput" required placeholder="เช่น 1, 2, 34-4908" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ทะเบียนเดิม (Old Plate)</label>
+                        <input type="text" id="busOldPlateInput" placeholder="เช่น 34-3632" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">เลขตัวถัง (VIN NUMBER)</label>
+                        <input type="text" id="busVinInput" placeholder="MRSABREM..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ทะเบียนใหม่ (New Plate)</label>
+                        <input type="text" id="busNewPlateInput" placeholder="Project RAMA" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ID Online</label>
+                        <input type="text" id="busIdOnlineInput" placeholder="25343632/..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">S/N MDVR</label>
+                        <input type="text" id="busSnMdvrInput" placeholder="DVC-MDVR-0073" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">SIM MDVR</label>
+                        <input type="text" id="busSimMdvrInput" placeholder="896604012460..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <div class="md:col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
+                        <button type="button" onclick="closeModals()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">ยกเลิก</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-md">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
     <script>
-        // ข้อมูลตั้งต้น (จะถูกใช้ถ้ายังไม่มีการบันทึกใน LocalStorage)
-        const defaultBusData = [
-            { id: 1, old_plate: '34-3632', vin: 'MRSABREM8NZN00093', id_online: '25343632/100525343632', sn_mdvr: 'DVC-MDVR-0073', sim: '896604012460174056', project: 'Project RAMA' },
-            { id: 2, old_plate: '34-3634', vin: 'MRSABREM9NZN00099', id_online: '25343634/00525343634', sn_mdvr: 'DVC-MDVR-0332', sim: '896604012460175070', project: 'Project RAMA' },
-            { id: 3, old_plate: '34-3636', vin: 'LL3ADCJ46NA070723', id_online: '25343636/100525343636', sn_mdvr: 'DVC-MDVR-0246', sim: '896604122460367196', project: 'Project RAMA' },
-            { id: 4, old_plate: '34-3640', vin: 'MRSABREM3NZN00096', id_online: '25343640/100525343640', sn_mdvr: 'DVC-MDVR-0245', sim: '896604012460171221', project: 'Project RAMA' },
-            { id: 5, old_plate: '34-3654', vin: 'MRSABREM6NZN00092', id_online: '25343654/100525343654', sn_mdvr: 'DVC-MDVR-0247', sim: '896604122460367069', project: 'Project RAMA' },
-            { id: 6, old_plate: '34-3637', vin: 'MRSABREM1NZN00100', id_online: '25343637/100525343637', sn_mdvr: '-', sim: '896604122460367708', project: 'Project RAMA' },
-            { id: 7, old_plate: '34-3630', vin: 'MRSABREM6NZN00089', project: 'Unassigned' },
-            { id: 8, old_plate: '34-3639', vin: 'MRSABREM2NZN00090', project: 'Unassigned' },
-            { id: 9, old_plate: '34-3628', vin: 'MRSABREM4NZN00091', project: 'Unassigned' },
-            { id: 10, old_plate: '34-3627', vin: 'MRSABREMXNZN00094', project: 'Unassigned' },
-            { id: 11, old_plate: '34-3629', vin: 'MRSABREM1NZN00095', project: 'Unassigned' },
-            { id: 12, old_plate: '34-3638', vin: 'MRSABREM5NZN00097', project: 'Unassigned' },
-            { id: 13, old_plate: '34-3631', vin: 'MRSABREM7NZN00098', project: 'Unassigned' },
-            { id: 14, old_plate: '34-3635', vin: 'MRSABREM3NZN00101', project: 'Unassigned' },
-            { id: 15, old_plate: '34-3626', vin: 'MRSABREM1PZN00102', project: 'Unassigned' },
-            { id: 16, old_plate: '34-4908', vin: 'MRSABREM3PZN00103', project: 'Unassigned' },
-            { id: 17, old_plate: '34-4910', vin: 'MRSABREM5PZN00104', project: 'Unassigned' },
-            { id: 18, old_plate: '34-4907', vin: 'MRSABREM7PZN00105', project: 'Unassigned' },
-            { id: 19, old_plate: '34-4909', vin: 'MRSABREM9PZN00106', project: 'Unassigned' },
-            { id: 20, old_plate: '34-4906', project: 'Unassigned' }
-        ];
+        // State variables
+        let supabase = null;
+        let groupsData = [];
+        let busesData = [];
 
-        // โหลดข้อมูลรถจาก LocalStorage หรือใช้ค่าเริ่มต้น
-        let busData = JSON.parse(localStorage.getItem('master_bus_data')) || defaultBusData;
+        // DOM Elements
+        const setupModal = document.getElementById('setupModal');
+        const appContainer = document.getElementById('appContainer');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const groupsContainer = document.getElementById('groupsContainer');
+        const emptyState = document.getElementById('emptyState');
+        const groupList = document.getElementById('groupList');
+        const busGroupSelect = document.getElementById('busGroupSelect');
 
-        // รายการ Checklist (เพิ่มป้ายไฟ LED)
+        // Checklist Definition
         const checklistItems = [
-            { id: "mdvr", label: "Set up MDVR" },
-            { id: "fleet", label: "ตรวจสอบ Fleet Online" },
-            { id: "config", label: "Config กล้องนับคน" },
-            { id: "license", label: "รูดใบขับขี่" },
-            { id: "led", label: "ทดสอบป้ายไฟ LED" } // <- เพิ่มหัวข้อใหม่
+            { key: 'chk_mdvr', label: 'Set up MDVR' },
+            { key: 'chk_fleet', label: 'Fleet Online' },
+            { key: 'chk_camera', label: 'Config กล้องนับคน' },
+            { key: 'chk_license', label: 'รูดใบขับขี่' },
+            { key: 'chk_led', label: 'ทดสอบป้ายไฟ LED' }
         ];
 
-        // State
-        let currentView = 'projects'; 
-        let selectedProject = null;
-        let selectedBus = null;
-        let isEditing = false;
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            const url = localStorage.getItem('supabaseUrl');
+            const key = localStorage.getItem('supabaseKey');
 
-        function saveMasterBusData() {
-            localStorage.setItem('master_bus_data', JSON.stringify(busData));
-        }
-
-        // ดึงข้อมูล Checklist ที่บันทึกไว้
-        function getSavedData(busId) {
-            const data = localStorage.getItem(`bus_${busId}`);
-            return data ? JSON.parse(data) : {};
-        }
-
-        // บันทึกข้อมูล Checklist
-        function saveChecklistData(busId, key, value) {
-            const data = getSavedData(busId);
-            data[key] = value;
-            localStorage.setItem(`bus_${busId}`, JSON.stringify(data));
-            render();
-        }
-
-        // คำนวณ Progress
-        function getBusProgress(busId) {
-            const data = getSavedData(busId);
-            const completed = checklistItems.filter(item => data[item.id]).length;
-            return { completed, total: checklistItems.length };
-        }
-
-        const contentDiv = document.getElementById('content');
-        const headerTitle = document.getElementById('headerTitle');
-        const backBtn = document.getElementById('backBtn');
-
-        backBtn.addEventListener('click', () => {
-            if (currentView === 'form') {
-                currentView = isEditing ? 'checklist' : 'projects';
-            } else if (currentView === 'checklist') {
-                // อัปเดตข้อมูล selectedBus ล่าสุดเผื่อย้ายกลุ่ม
-                selectedBus = busData.find(b => b.id === selectedBus.id);
-                selectedProject = selectedBus ? selectedBus.project : selectedProject;
-                currentView = 'buses';
-            } else if (currentView === 'buses') {
-                currentView = 'projects';
-                selectedProject = null;
+            if (url && key) {
+                initSupabase(url, key);
+            } else {
+                setupModal.classList.remove('hidden');
+                setupModal.classList.add('flex');
             }
-            render();
         });
 
-        // ฟังก์ชัน Render หน้าจอ
-        function render() {
-            contentDiv.innerHTML = '';
-            contentDiv.className = 'p-4 fade-in pb-20';
-            
-            if (currentView === 'projects') {
-                backBtn.classList.add('hidden');
-                headerTitle.textContent = 'เลือกระบบ/โปรเจกต์';
-                
-                const projects = [...new Set(busData.map(b => b.project))];
-                
-                projects.forEach(proj => {
-                    const btn = document.createElement('div');
-                    btn.className = 'bg-white border-2 border-blue-200 rounded-lg p-5 mb-4 shadow-sm cursor-pointer hover:bg-blue-50';
-                    
-                    const busesInProject = busData.filter(b => b.project === proj);
-                    let totalItems = 0;
-                    let totalCompleted = 0;
-                    
-                    busesInProject.forEach(b => {
-                        const prog = getBusProgress(b.id);
-                        totalCompleted += prog.completed;
-                        totalItems += prog.total;
-                    });
-                    
-                    const percent = totalItems === 0 ? 0 : Math.round((totalCompleted / totalItems) * 100);
+        // Setup Form Submit
+        document.getElementById('setupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const url = document.getElementById('supabaseUrlInput').value.trim();
+            const key = document.getElementById('supabaseKeyInput').value.trim();
+            localStorage.setItem('supabaseUrl', url);
+            localStorage.setItem('supabaseKey', key);
+            setupModal.classList.add('hidden');
+            setupModal.classList.remove('flex');
+            initSupabase(url, key);
+        });
 
-                    btn.innerHTML = `
-                        <div class="flex justify-between items-center mb-2">
-                            <h2 class="text-xl font-bold text-blue-700">${proj} <span class="text-sm font-normal text-gray-500">(${busesInProject.length} คัน)</span></h2>
-                            <span class="text-sm font-semibold text-gray-500">${percent}%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5">
-                            <div class="h-1.5 rounded-full bg-blue-500" style="width: ${percent}%"></div>
-                        </div>
-                    `;
-                    btn.onclick = () => {
-                        selectedProject = proj;
-                        currentView = 'buses';
-                        render();
-                    };
-                    contentDiv.appendChild(btn);
-                });
-
-                // ปุ่มเพิ่มรถใหม่
-                const addBtn = document.createElement('button');
-                addBtn.className = 'w-full mt-4 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700';
-                addBtn.textContent = '+ เพิ่มรถใหม่';
-                addBtn.onclick = () => {
-                    selectedBus = null;
-                    isEditing = false;
-                    currentView = 'form';
-                    render();
-                };
-                contentDiv.appendChild(addBtn);
-
-            } else if (currentView === 'buses') {
-                backBtn.classList.remove('hidden');
-                headerTitle.textContent = `โปรเจกต์: ${selectedProject}`;
-                
-                const buses = busData.filter(b => b.project === selectedProject);
-                
-                buses.forEach(bus => {
-                    const { completed, total } = getBusProgress(bus.id);
-                    const isDone = completed === total;
-                    const percent = Math.round((completed / total) * 100); 
-                    
-                    const card = document.createElement('div');
-                    card.className = `border rounded-lg p-4 mb-3 shadow-sm cursor-pointer ${isDone ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`;
-                    
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <div class="font-bold text-lg text-gray-800">${bus.old_plate || '-'}</div>
-                                <div class="text-sm text-gray-500">VIN: ${bus.vin || '-'}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-sm font-semibold ${isDone ? 'text-green-600' : 'text-blue-600'}">
-                                    ${percent}% 
-                                </div>
-                                <div class="text-xs text-gray-400">
-                                    (${completed}/${total})
-                                </div>
-                            </div>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                            <div class="h-2 rounded-full ${isDone ? 'bg-green-500' : 'bg-blue-500'}" style="width: ${percent}%"></div>
-                        </div>
-                    `;
-                    card.onclick = () => {
-                        selectedBus = bus;
-                        currentView = 'checklist';
-                        render();
-                    };
-                    contentDiv.appendChild(card);
-                });
-
-            } else if (currentView === 'checklist') {
-                backBtn.classList.remove('hidden');
-                headerTitle.textContent = `รถ: ${selectedBus.old_plate}`;
-                
-                const data = getSavedData(selectedBus.id);
-                const { completed, total } = getBusProgress(selectedBus.id);
-                const percent = Math.round((completed / total) * 100);
-                
-                // Info Card พร้อมปุ่มแก้ไข
-                const infoCard = document.createElement('div');
-                infoCard.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm relative overflow-hidden shadow-sm';
-                infoCard.innerHTML = `
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="text-gray-700">
-                            <p><strong>โปรเจกต์:</strong> ${selectedBus.project || '-'}</p>
-                            <p><strong>VIN:</strong> ${selectedBus.vin || '-'}</p>
-                            <p><strong>ID Online:</strong> ${selectedBus.id_online || '-'}</p>
-                            <p><strong>S/N MDVR:</strong> ${selectedBus.sn_mdvr || '-'}</p>
-                            <p><strong>SIM MDVR:</strong> ${selectedBus.sim || '-'}</p>
-                        </div>
-                        <button id="editBtn" class="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md text-xs font-bold shadow hover:bg-yellow-500">✏️ แก้ไข</button>
-                    </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between text-xs font-semibold text-blue-700 mb-1">
-                            <span>ความคืบหน้า</span>
-                            <span>${percent}%</span>
-                        </div>
-                        <div class="w-full bg-blue-200 rounded-full h-1.5">
-                            <div class="h-1.5 rounded-full bg-blue-600 transition-all duration-300" style="width: ${percent}%"></div>
-                        </div>
-                    </div>
-                `;
-                contentDiv.appendChild(infoCard);
-
-                // ตั้งค่าปุ่มแก้ไข
-                infoCard.querySelector('#editBtn').onclick = () => {
-                    isEditing = true;
-                    currentView = 'form';
-                    render();
-                };
-
-                // Checklist Items
-                checklistItems.forEach(item => {
-                    const row = document.createElement('label');
-                    row.className = 'flex items-center p-4 mb-3 border rounded-lg cursor-pointer transition-colors shadow-sm ' + (data[item.id] ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200');
-                    
-                    row.innerHTML = `
-                        <input type="checkbox" class="w-6 h-6 mr-4 rounded text-blue-600 focus:ring-blue-500" ${data[item.id] ? 'checked' : ''}>
-                        <span class="text-lg ${data[item.id] ? 'text-green-800 font-semibold' : 'text-gray-700'}">${item.label}</span>
-                    `;
-                    
-                    const checkbox = row.querySelector('input');
-                    checkbox.onchange = (e) => {
-                        saveChecklistData(selectedBus.id, item.id, e.target.checked);
-                    };
-                    contentDiv.appendChild(row);
-                });
-
-            } else if (currentView === 'form') {
-                backBtn.classList.remove('hidden');
-                headerTitle.textContent = isEditing ? 'แก้ไขข้อมูลรถ' : 'เพิ่มรถใหม่';
-
-                const form = document.createElement('div');
-                form.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
-                
-                // ใช้ข้อมูลเดิมถ้ามี
-                const bData = isEditing && selectedBus ? selectedBus : { old_plate: '', project: 'Unassigned', vin: '', id_online: '', sn_mdvr: '', sim: '' };
-
-                form.innerHTML = `
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">ทะเบียนรถ</label>
-                        <input type="text" id="f_plate" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.old_plate}">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มโปรเจกต์ (แก้ไขเพื่อย้ายกลุ่ม)</label>
-                        <input type="text" id="f_project" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.project}">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">VIN Number</label>
-                        <input type="text" id="f_vin" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.vin}">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">ID Online</label>
-                        <input type="text" id="f_idonline" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.id_online}">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">S/N MDVR</label>
-                        <input type="text" id="f_sn" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.sn_mdvr}">
-                    </div>
-                    <div class="mb-6">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">SIM MDVR</label>
-                        <input type="text" id="f_sim" class="w-full border p-2 rounded bg-gray-50 focus:ring-2 focus:ring-blue-400" value="${bData.sim}">
-                    </div>
-                    <button id="saveBtn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-green-700">💾 บันทึกข้อมูล</button>
-                `;
-                contentDiv.appendChild(form);
-
-                form.querySelector('#saveBtn').onclick = () => {
-                    const plate = document.getElementById('f_plate').value.trim();
-                    const proj = document.getElementById('f_project').value.trim() || 'Unassigned';
-                    
-                    if(!plate) return alert('กรุณากรอกทะเบียนรถ');
-
-                    if (isEditing) {
-                        // อัปเดตข้อมูลเดิม
-                        const idx = busData.findIndex(b => b.id === selectedBus.id);
-                        if(idx > -1) {
-                            busData[idx].old_plate = plate;
-                            busData[idx].project = proj;
-                            busData[idx].vin = document.getElementById('f_vin').value;
-                            busData[idx].id_online = document.getElementById('f_idonline').value;
-                            busData[idx].sn_mdvr = document.getElementById('f_sn').value;
-                            busData[idx].sim = document.getElementById('f_sim').value;
-                        }
-                    } else {
-                        // เพิ่มรถใหม่
-                        const newId = busData.length > 0 ? Math.max(...busData.map(b => b.id)) + 1 : 1;
-                        busData.push({
-                            id: newId,
-                            old_plate: plate,
-                            project: proj,
-                            vin: document.getElementById('f_vin').value,
-                            id_online: document.getElementById('f_idonline').value,
-                            sn_mdvr: document.getElementById('f_sn').value,
-                            sim: document.getElementById('f_sim').value
-                        });
-                    }
-
-                    saveMasterBusData(); // บันทึกลง LocalStorage
-                    alert('บันทึกข้อมูลเรียบร้อยแล้ว');
-                    
-                    // กลับไปหน้าก่อนหน้า
-                    if (isEditing) {
-                        currentView = 'checklist';
-                    } else {
-                        currentView = 'projects';
-                    }
-                    render();
-                };
+        function logout() {
+            if(confirm('ต้องการออกจากระบบและล้างการตั้งค่า Supabase หรือไม่?')) {
+                localStorage.removeItem('supabaseUrl');
+                localStorage.removeItem('supabaseKey');
+                location.reload();
             }
         }
 
-        // เริ่มต้นการทำงาน
-        render();
+        function showLoading() { loadingOverlay.classList.remove('hidden'); loadingOverlay.classList.add('flex'); }
+        function hideLoading() { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+
+        async function initSupabase(url, key) {
+            try {
+                showLoading();
+                supabase = window.supabase.createClient(url, key);
+                await fetchData();
+                appContainer.classList.remove('hidden');
+            } catch (error) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message);
+                localStorage.clear();
+                location.reload();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function fetchData() {
+            // Fetch Groups
+            const { data: gData, error: gError } = await supabase.from('groups').select('*').order('name');
+            if (gError) throw gError;
+            groupsData = gData || [];
+
+            // Fetch Buses
+            const { data: bData, error: bError } = await supabase.from('buses').select('*').order('no');
+            if (bError) throw bError;
+            
+            // Try to sort numerically if possible
+            busesData = (bData || []).sort((a, b) => {
+                const numA = parseInt(a.no) || 0;
+                const numB = parseInt(b.no) || 0;
+                if(numA !== numB) return numA - numB;
+                return (a.no || '').localeCompare(b.no || '');
+            });
+
+            renderApp();
+        }
+
+        // Render Functions
+        function renderApp() {
+            if (groupsData.length === 0) {
+                groupsContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                updateProgress();
+                return;
+            }
+            emptyState.classList.add('hidden');
+            groupsContainer.innerHTML = '';
+
+            groupsData.forEach(group => {
+                const groupBuses = busesData.filter(b => b.group_id === group.id);
+                
+                // Build Table HTML
+                const tableHTML = `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                    <!-- Group Header -->
+                    <div class="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-folder-open text-amber-500"></i>
+                            <h3 class="text-lg font-bold text-slate-800">${group.name}</h3>
+                            <span class="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full ml-2">${groupBuses.length} คัน</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Responsive Wrapper -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse whitespace-nowrap">
+                            <thead>
+                                <tr class="bg-slate-800 text-slate-100">
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">No.</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">ทะเบียนเดิม</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">VIN NUMBER</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">ทะเบียนใหม่</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">ID Online</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">S/N MDVR</th>
+                                    <th class="py-3 px-4 font-semibold text-sm border-r border-slate-700">SIM MDVR</th>
+                                    ${checklistItems.map(item => `<th class="py-3 px-2 font-semibold text-[11px] md:text-xs text-center border-r border-slate-700">${item.label}</th>`).join('')}
+                                    <th class="py-3 px-4 font-semibold text-sm text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 text-sm">
+                                ${groupBuses.length === 0 ? `<tr><td colspan="13" class="py-8 text-center text-slate-400">ยังไม่มีรถในกลุ่มนี้</td></tr>` : 
+                                  groupBuses.map(bus => {
+                                      const isCompleted = checklistItems.every(item => bus[item.key]);
+                                      const rowClass = isCompleted ? 'bg-green-50/40 hover:bg-green-50/80' : 'hover:bg-slate-50/80';
+                                      
+                                      return `
+                                      <tr class="${rowClass} transition-colors">
+                                          <td class="py-2.5 px-4 border-r border-slate-100 font-bold text-slate-700">${bus.no || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 text-blue-700 font-medium">${bus.old_plate || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 font-mono text-slate-500 text-xs">${bus.vin_number || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 text-slate-600">${bus.new_plate || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 font-mono text-slate-500 text-xs">${bus.id_online || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 font-mono text-slate-500 text-xs">${bus.sn_mdvr || '-'}</td>
+                                          <td class="py-2.5 px-4 border-r border-slate-100 font-mono text-slate-500 text-xs">${bus.sim_mdvr || '-'}</td>
+                                          ${checklistItems.map(item => `
+                                            <td class="py-2.5 px-2 border-r border-slate-100 text-center">
+                                                <div class="flex justify-center">
+                                                    <input type="checkbox" onchange="toggleChecklist('${bus.id}', '${item.key}', this.checked)" ${bus[item.key] ? 'checked' : ''} 
+                                                    class="w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 rounded cursor-pointer accent-blue-600 hover:ring-2 hover:ring-blue-200 transition-all">
+                                                </div>
+                                            </td>
+                                          `).join('')}
+                                          <td class="py-2.5 px-4 text-center space-x-2">
+                                              <button onclick="editBus('${bus.id}')" class="text-blue-500 hover:text-blue-700 p-1" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+                                              <button onclick="deleteBus('${bus.id}')" class="text-red-400 hover:text-red-600 p-1" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                                          </td>
+                                      </tr>
+                                      `;
+                                  }).join('')
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+                
+                groupsContainer.insertAdjacentHTML('beforeend', tableHTML);
+            });
+
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const totalBuses = busesData.length;
+            const completedBuses = busesData.filter(bus => 
+                checklistItems.every(item => bus[item.key])
+            ).length;
+
+            const percentage = totalBuses === 0 ? 0 : Math.round((completedBuses / totalBuses) * 100);
+            const pb = document.getElementById('progressBar');
+            
+            pb.style.width = `${percentage}%`;
+            pb.innerHTML = percentage > 5 ? `${percentage}%` : ''; // Show text inside bar if space allows
+            
+            if (percentage === 100 && totalBuses > 0) {
+                pb.classList.remove('bg-blue-500');
+                pb.classList.add('bg-green-500');
+                document.getElementById('progressText').classList.replace('text-blue-600', 'text-green-600');
+            } else {
+                pb.classList.add('bg-blue-500');
+                pb.classList.remove('bg-green-500');
+                document.getElementById('progressText').classList.replace('text-green-600', 'text-blue-600');
+            }
+
+            document.getElementById('progressText').innerText = `${percentage}%`;
+            document.getElementById('progressSubtext').innerText = `ดำเนินการเสร็จสมบูรณ์ ${completedBuses} จาก ${totalBuses} คัน`;
+        }
+
+        // --- Checkbox Interaction ---
+        async function toggleChecklist(busId, field, checked) {
+            showLoading();
+            try {
+                const { error } = await supabase.from('buses').update({ [field]: checked }).eq('id', busId);
+                if (error) throw error;
+                
+                // Update local state
+                const bus = busesData.find(b => b.id === busId);
+                if (bus) bus[field] = checked;
+                
+                renderApp();
+            } catch (err) {
+                alert('อัปเดตข้อมูลล้มเหลว: ' + err.message);
+                renderApp(); // Re-render to revert checkbox state
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Modals Logic ---
+        function closeModals() {
+            document.getElementById('groupModal').classList.replace('flex', 'hidden');
+            document.getElementById('busModal').classList.replace('flex', 'hidden');
+        }
+
+        // Group Management
+        function openGroupModal() {
+            renderGroupList();
+            document.getElementById('groupModal').classList.remove('hidden');
+            document.getElementById('groupModal').classList.add('flex');
+            document.getElementById('groupNameInput').focus();
+        }
+
+        function renderGroupList() {
+            groupList.innerHTML = '';
+            groupsData.forEach(g => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center bg-white p-3 rounded border border-slate-100 shadow-sm';
+                li.innerHTML = `
+                    <span class="text-sm font-medium text-slate-700">${g.name}</span>
+                    <button type="button" onclick="deleteGroup('${g.id}', '${g.name}')" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors"><i class="fa-solid fa-trash mr-1"></i>ลบ</button>
+                `;
+                groupList.appendChild(li);
+            });
+        }
+
+        document.getElementById('groupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('groupNameInput');
+            const name = input.value.trim();
+            if (!name) return;
+            
+            showLoading();
+            try {
+                const { data, error } = await supabase.from('groups').insert([{ name }]).select();
+                if (error) throw error;
+                groupsData.push(data[0]);
+                input.value = '';
+                renderGroupList();
+                renderApp(); // Reflect globally
+            } catch (err) {
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function deleteGroup(id, name) {
+            if(!confirm(`ยืนยันการลบกลุ่ม "${name}"?\n(ข้อมูลรถในกลุ่มนี้จะถูกลบไปด้วย)`)) return;
+            
+            showLoading();
+            try {
+                const { error } = await supabase.from('groups').delete().eq('id', id);
+                if (error) throw error;
+                
+                // Update local state
+                groupsData = groupsData.filter(g => g.id !== id);
+                busesData = busesData.filter(b => b.group_id !== id);
+                
+                renderGroupList();
+                renderApp();
+            } catch (err) {
+                alert('ลบข้อมูลล้มเหลว: ' + err.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Bus Management
+        function populateGroupSelect(selectedId = '') {
+            busGroupSelect.innerHTML = '<option value="" disabled selected>-- เลือกกลุ่มรถ --</option>';
+            groupsData.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.id;
+                option.textContent = g.name;
+                if (g.id === selectedId) option.selected = true;
+                busGroupSelect.appendChild(option);
+            });
+        }
+
+        function openBusModal() {
+            if (groupsData.length === 0) {
+                alert('กรุณาสร้างกลุ่มรถก่อนเพิ่มรายชื่อรถ');
+                return;
+            }
+            document.getElementById('busModalTitle').innerHTML = '<i class="fa-solid fa-bus text-blue-500 mr-2"></i>เพิ่มข้อมูลรถใหม่';
+            document.getElementById('busForm').reset();
+            document.getElementById('busIdInput').value = '';
+            populateGroupSelect();
+            
+            document.getElementById('busModal').classList.remove('hidden');
+            document.getElementById('busModal').classList.add('flex');
+        }
+
+        function editBus(id) {
+            const bus = busesData.find(b => b.id === id);
+            if(!bus) return;
+
+            document.getElementById('busModalTitle').innerHTML = '<i class="fa-solid fa-pen text-blue-500 mr-2"></i>แก้ไขข้อมูลรถ';
+            document.getElementById('busIdInput').value = bus.id;
+            populateGroupSelect(bus.group_id);
+            
+            document.getElementById('busNoInput').value = bus.no || '';
+            document.getElementById('busOldPlateInput').value = bus.old_plate || '';
+            document.getElementById('busVinInput').value = bus.vin_number || '';
+            document.getElementById('busNewPlateInput').value = bus.new_plate || '';
+            document.getElementById('busIdOnlineInput').value = bus.id_online || '';
+            document.getElementById('busSnMdvrInput').value = bus.sn_mdvr || '';
+            document.getElementById('busSimMdvrInput').value = bus.sim_mdvr || '';
+
+            document.getElementById('busModal').classList.remove('hidden');
+            document.getElementById('busModal').classList.add('flex');
+        }
+
+        document.getElementById('busForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('busIdInput').value;
+            const payload = {
+                group_id: document.getElementById('busGroupSelect').value,
+                no: document.getElementById('busNoInput').value,
+                old_plate: document.getElementById('busOldPlateInput').value,
+                vin_number: document.getElementById('busVinInput').value,
+                new_plate: document.getElementById('busNewPlateInput').value,
+                id_online: document.getElementById('busIdOnlineInput').value,
+                sn_mdvr: document.getElementById('busSnMdvrInput').value,
+                sim_mdvr: document.getElementById('busSimMdvrInput').value,
+            };
+
+            showLoading();
+            try {
+                if (id) {
+                    // Update
+                    const { data, error } = await supabase.from('buses').update(payload).eq('id', id).select();
+                    if (error) throw error;
+                    
+                    const index = busesData.findIndex(b => b.id === id);
+                    if (index > -1) busesData[index] = { ...busesData[index], ...payload };
+                } else {
+                    // Insert
+                    const { data, error } = await supabase.from('buses').insert([payload]).select();
+                    if (error) throw error;
+                    busesData.push(data[0]);
+                }
+                closeModals();
+                renderApp();
+            } catch (err) {
+                alert('บันทึกข้อมูลล้มเหลว: ' + err.message);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function deleteBus(id) {
+            if(!confirm('ยืนยันการลบรถคันนี้ออกจากระบบ?')) return;
+            
+            showLoading();
+            try {
+                const { error } = await supabase.from('buses').delete().eq('id', id);
+                if (error) throw error;
+                
+                busesData = busesData.filter(b => b.id !== id);
+                renderApp();
+            } catch (err) {
+                alert('ลบข้อมูลล้มเหลว: ' + err.message);
+            } finally {
+                hideLoading();
+            }
+        }
     </script>
 </body>
 </html>
